@@ -1,7 +1,13 @@
+# ── Web framework ──────────────────────────────────────────────
 Flask>=3.0.0
+gunicorn>=23.0.0            # production WSGI server (used on Render)
+
+# ── Database ORM & drivers ────────────────────────────────────
 Flask-SQLAlchemy>=3.1.0
-python-dateutil>=2.8.0
-python-dotenv>=1.0.0
-PyMySQL>=1.1.0
-psycopg2-binary>=2.9.0
-gunicorn>=23.0.0
+sqlalchemy>=2.0.0           # imported directly (sqlalchemy.func)
+PyMySQL>=1.1.0              # MySQL driver  -> mysql+pymysql://
+psycopg2-binary>=2.9.0      # PostgreSQL driver -> postgresql+psycopg2:// (used on Render)
+
+# ── Utilities ─────────────────────────────────────────────────
+python-dateutil>=2.8.0      # flexible date parsing
+python-dotenv>=1.0.0        # load .env into the environment
