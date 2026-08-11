@@ -7,10 +7,22 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 
+def _normalize_database_url(database_url: str) -> str:
+    # Render's Postgres connection strings historically use the "postgres://"
+    # scheme, which SQLAlchemy does not recognize. Normalize it to the
+    # "postgresql://" scheme that psycopg2/SQLAlchemy accept.
+    if database_url.startswith("postgres://"):
+        database_url = "postgresql://" + database_url[len("postgres://") :]
+    # Flask-SQLAlchemy 3.x also rejects "postgres://" in some versions; keep env in sync.
+    if database_url != os.environ.get("DATABASE_URL", "").strip():
+        os.environ["DATABASE_URL"] = database_url
+    return database_url
+
+
 def get_database_uri(app) -> tuple[str, bool]:
     database_url = os.environ.get("DATABASE_URL", "").strip()
     if database_url:
-        return database_url, False
+        return _normalize_database_url(database_url), False
 
     db_path = os.path.join(app.instance_path, "sales.db")
     os.makedirs(app.instance_path, exist_ok=True)

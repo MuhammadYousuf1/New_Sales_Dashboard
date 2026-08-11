@@ -1,0 +1,32 @@
+# Render Blueprint (uses "New +" > "Blueprint" in the Render dashboard, or
+# the Render CLI "render blueprint launch" command).
+#
+# This provisions a free PostgreSQL database and a web service for the app.
+# See https://render.com/docs/blueprint-spec for the schema reference.
+
+databases:
+  - name: sales-dashboard-db
+    plan: free
+    databaseName: sales_db
+
+services:
+  - type: web
+    name: sales-dashboard
+    runtime: python
+    plan: free
+    autoDeploy: true
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn wsgi:app"
+    healthCheckPath: /
+    envVars:
+      # DATABASE_URL is wired to the Postgres DB created above. Render's URL
+      # uses "postgres://" which the app auto-normalizes to "postgresql://".
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sales-dashboard-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      # Set to false to start with an empty table; true seeds ~500 sample rows.
+      - key: SEED_SAMPLE_DATA
+        value: "true"
