@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Import CSV{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h4 class="mb-1">Import CSV</h4>
+                    <p class="text-muted mb-0">Upload a CSV file to add multiple sales at once.</p>
+                </div>
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary btn-sm">Back to dashboard</a>
+            </div>
+
+            <form method="post" enctype="multipart/form-data" class="mb-4">
+                <div class="mb-3">
+                    <label for="csv_file" class="form-label">CSV file</label>
+                    <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Upload and import</button>
+            </form>
+
+            <div class="border rounded p-3 bg-light">
+                <h6 class="mb-2">Expected CSV format</h6>
+                <p class="text-muted small mb-2">Include a header row with these exact column names:</p>
+                <code>order_date,product,region,quantity,unit_price,customer</code>
+                <pre class="mt-3 mb-0 small bg-white border rounded p-3">order_date,product,region,quantity,unit_price,customer
+2026-03-15,Laptop Pro,North America,2,1299.99,Acme Corp
+2026-03-16,Wireless Mouse,Europe,5,49.99,Globex Inc</pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

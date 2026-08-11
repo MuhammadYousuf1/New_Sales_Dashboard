@@ -1,0 +1,4 @@
+order_date,product,region,quantity,unit_price,customer
+2026-03-15,Laptop Pro,North America,2,1299.99,Acme Corp
+2026-03-16,Wireless Mouse,Europe,5,49.99,Globex Inc
+2026-03-17,4K Monitor,Asia Pacific,1,399.99,Initech

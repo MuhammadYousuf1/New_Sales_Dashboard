@@ -1,0 +1,76 @@
+:root {
+    --card-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.08);
+}
+
+body {
+    background-color: #f4f6f9;
+}
+
+.card {
+    border: none;
+    box-shadow: var(--card-shadow);
+}
+
+.kpi-card {
+    border-left: 4px solid transparent;
+}
+
+.kpi-card.revenue {
+    border-left-color: #0d6efd;
+}
+
+.kpi-card.orders {
+    border-left-color: #198754;
+}
+
+.kpi-card.aov {
+    border-left-color: #6f42c1;
+}
+
+.kpi-card.growth {
+    border-left-color: #fd7e14;
+}
+
+.kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+}
+
+.chart-card {
+    min-height: 320px;
+}
+
+.table-card .table {
+    margin-bottom: 0;
+}
+
+.table th {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.table th:hover {
+    background-color: #f8f9fa;
+}
+
+.trend-badge.positive {
+    background-color: #d1e7dd;
+    color: #0f5132;
+}
+
+.trend-badge.negative {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+.filter-bar {
+    background: #fff;
+    border-radius: 0.5rem;
+    box-shadow: var(--card-shadow);
+}
+
+.loading-overlay {
+    opacity: 0.55;
+    pointer-events: none;
+}

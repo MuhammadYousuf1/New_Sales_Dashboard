@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if data_updated %}
+<div class="alert alert-success py-2">Database updated. Dashboard refreshed with your new data.</div>
+{% endif %}
+<section class="filter-bar p-3 mb-4">
+    <form id="filter-form" class="row g-3 align-items-end">
+        <div class="col-md-2">
+            <label for="start_date" class="form-label">Start date</label>
+            <input type="date" class="form-control" id="start_date" name="start_date" value="{{ default_start }}">
+        </div>
+        <div class="col-md-2">
+            <label for="end_date" class="form-label">End date</label>
+            <input type="date" class="form-control" id="end_date" name="end_date" value="{{ default_end }}">
+        </div>
+        <div class="col-md-3">
+            <label for="region" class="form-label">Region</label>
+            <select class="form-select" id="region" name="region">
+                <option value="">All regions</option>
+                {% for region in regions %}
+                <option value="{{ region }}" {% if default_region == region %}selected{% endif %}>{{ region }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="product" class="form-label">Product</label>
+            <select class="form-select" id="product" name="product">
+                <option value="">All products</option>
+                {% for product in products %}
+                <option value="{{ product }}" {% if default_product == product %}selected{% endif %}>{{ product }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Apply filters</button>
+        </div>
+    </form>
+</section>
+
+<div id="dashboard-content">
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card kpi-card revenue p-3">
+                <div class="text-muted small">Total Revenue</div>
+                <div class="kpi-value" id="kpi-revenue">$0</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card kpi-card orders p-3">
+                <div class="text-muted small">Orders</div>
+                <div class="kpi-value" id="kpi-orders">0</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card kpi-card aov p-3">
+                <div class="text-muted small">Avg Order Value</div>
+                <div class="kpi-value" id="kpi-aov">$0</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card kpi-card growth p-3">
+                <div class="text-muted small">Revenue vs Prior Period</div>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="kpi-value" id="kpi-growth">0%</div>
+                    <span class="badge trend-badge" id="kpi-growth-badge">—</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+            <div class="card chart-card p-3">
+                <h6 class="text-muted mb-3">Revenue Over Time</h6>
+                <canvas id="timeChart" height="120"></canvas>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card chart-card p-3">
+                <h6 class="text-muted mb-3">Revenue by Region</h6>
+                <canvas id="regionChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="card chart-card p-3">
+                <h6 class="text-muted mb-3">Top Products by Revenue</h6>
+                <canvas id="productChart" height="80"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="card table-card p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="text-muted mb-0">Recent Sales</h6>
+            <span class="text-muted small" id="table-summary">Showing 0 of 0</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th data-sort="order_date">Date</th>
+                        <th data-sort="customer">Customer</th>
+                        <th data-sort="product">Product</th>
+                        <th data-sort="region">Region</th>
+                        <th data-sort="quantity" class="text-end">Qty</th>
+                        <th data-sort="revenue" class="text-end">Revenue</th>
+                    </tr>
+                </thead>
+                <tbody id="sales-table-body">
+                    <tr><td colspan="6" class="text-center text-muted py-4">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-2">
+            <button class="btn btn-outline-secondary btn-sm" id="prev-page" disabled>Previous</button>
+            <span class="small text-muted" id="page-info">Page 1</span>
+            <button class="btn btn-outline-secondary btn-sm" id="next-page" disabled>Next</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+    const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+    const dashboard = document.getElementById("dashboard-content");
+    const filterForm = document.getElementById("filter-form");
+
+    let currentPage = 1;
+    let sortBy = "order_date";
+    let sortDir = "desc";
+    let charts = {};
+
+    const chartColors = [
+        "#0d6efd", "#198754", "#6f42c1", "#fd7e14", "#dc3545",
+        "#20c997", "#6610f2", "#ffc107"
+    ];
+
+    function getFilterParams() {
+        return new URLSearchParams({
+            start_date: document.getElementById("start_date").value,
+            end_date: document.getElementById("end_date").value,
+            region: document.getElementById("region").value,
+            product: document.getElementById("product").value,
+        });
+    }
+
+    function setLoading(isLoading) {
+        dashboard.classList.toggle("loading-overlay", isLoading);
+    }
+
+    function updateKpis(kpis) {
+        document.getElementById("kpi-revenue").textContent = currency.format(kpis.total_revenue);
+        document.getElementById("kpi-orders").textContent = kpis.order_count.toLocaleString();
+        document.getElementById("kpi-aov").textContent = currency.format(kpis.avg_order_value);
+
+        const growthEl = document.getElementById("kpi-growth");
+        const badgeEl = document.getElementById("kpi-growth-badge");
+        const pct = kpis.revenue_change_pct;
+        const sign = pct > 0 ? "+" : "";
+        growthEl.textContent = `${sign}${pct}%`;
+        badgeEl.textContent = pct >= 0 ? "Up" : "Down";
+        badgeEl.className = `badge trend-badge ${pct >= 0 ? "positive" : "negative"}`;
+    }
+
+    function upsertChart(id, config) {
+        const canvas = document.getElementById(id);
+        if (charts[id]) {
+            charts[id].destroy();
+        }
+        charts[id] = new Chart(canvas, config);
+    }
+
+    function updateCharts(metrics) {
+        upsertChart("timeChart", {
+            type: "line",
+            data: {
+                labels: metrics.revenue_over_time.labels,
+                datasets: [{
+                    label: "Revenue",
+                    data: metrics.revenue_over_time.values,
+                    borderColor: "#0d6efd",
+                    backgroundColor: "rgba(13, 110, 253, 0.1)",
+                    fill: true,
+                    tension: 0.3,
+                }],
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: (value) => currency.format(value),
+                        },
+                    },
+                },
+            },
+        });
+
+        upsertChart("regionChart", {
+            type: "doughnut",
+            data: {
+                labels: metrics.revenue_by_region.labels,
+                datasets: [{
+                    data: metrics.revenue_by_region.values,
+                    backgroundColor: chartColors,
+                }],
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: "bottom" },
+                },
+            },
+        });
+
+        upsertChart("productChart", {
+            type: "bar",
+            data: {
+                labels: metrics.top_products.labels,
+                datasets: [{
+                    label: "Revenue",
+                    data: metrics.top_products.values,
+                    backgroundColor: "#6f42c1",
+                }],
+            },
+            options: {
+                indexAxis: "y",
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        ticks: {
+                            callback: (value) => currency.format(value),
+                        },
+                    },
+                },
+            },
+        });
+    }
+
+    function updateTable(data) {
+        const tbody = document.getElementById("sales-table-body");
+        if (!data.items.length) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No sales found for these filters.</td></tr>`;
+        } else {
+            tbody.innerHTML = data.items.map((sale) => `
+                <tr>
+                    <td>${sale.order_date}</td>
+                    <td>${sale.customer}</td>
+                    <td>${sale.product}</td>
+                    <td>${sale.region}</td>
+                    <td class="text-end">${sale.quantity}</td>
+                    <td class="text-end">${currency.format(sale.revenue)}</td>
+                </tr>
+            `).join("");
+        }
+
+        document.getElementById("table-summary").textContent =
+            `Showing ${data.items.length} of ${data.total}`;
+        document.getElementById("page-info").textContent = `Page ${data.page} of ${data.pages}`;
+        document.getElementById("prev-page").disabled = data.page <= 1;
+        document.getElementById("next-page").disabled = data.page >= data.pages;
+    }
+
+    async function loadDashboard() {
+        setLoading(true);
+        const params = getFilterParams();
+        params.set("page", currentPage);
+        params.set("sort_by", sortBy);
+        params.set("sort_dir", sortDir);
+
+        try {
+            const [metricsRes, salesRes] = await Promise.all([
+                fetch(`/api/metrics?${params.toString()}`),
+                fetch(`/api/sales?${params.toString()}`),
+            ]);
+
+            const metrics = await metricsRes.json();
+            const sales = await salesRes.json();
+
+            updateKpis(metrics.kpis);
+            updateCharts(metrics);
+            updateTable(sales);
+        } catch (error) {
+            console.error("Failed to load dashboard", error);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    filterForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        currentPage = 1;
+        loadDashboard();
+    });
+
+    document.getElementById("prev-page").addEventListener("click", () => {
+        if (currentPage > 1) {
+            currentPage -= 1;
+            loadDashboard();
+        }
+    });
+
+    document.getElementById("next-page").addEventListener("click", () => {
+        currentPage += 1;
+        loadDashboard();
+    });
+
+    document.querySelectorAll("th[data-sort]").forEach((header) => {
+        header.addEventListener("click", () => {
+            const column = header.dataset.sort;
+            if (sortBy === column) {
+                sortDir = sortDir === "asc" ? "desc" : "asc";
+            } else {
+                sortBy = column;
+                sortDir = "desc";
+            }
+            currentPage = 1;
+            loadDashboard();
+        });
+    });
+
+    loadDashboard();
+})();
+</script>
+{% endblock %}
